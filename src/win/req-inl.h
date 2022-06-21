@@ -144,13 +144,18 @@ INLINE static void uv__process_reqs(uv_loop_t* loop) {
   uv_req_t* next;
 
   if (loop->pending_reqs_tail == NULL)
-    return;
+    return; // 没有 pending request
+
+  // [QUES] pending 该如何理解？
+  // 看下哪些地方调用了 uv__insert_pending_req。
+  // 在IO操作上，比如read，如果read已经完成但没有执行read callback，此时就是pending状态。
 
   first = loop->pending_reqs_tail->next_req;
   next = first;
   loop->pending_reqs_tail = NULL;
 
   while (next != NULL) {
+    // [QUES] 从这里的逻辑来看，是将所有pending request执行一遍，但执行完后，如何移除队列的？
     req = next;
     next = req->next_req != first ? req->next_req : NULL;
 

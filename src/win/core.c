@@ -588,34 +588,58 @@ static void uv__poll(uv_loop_t* loop, DWORD timeout) {
   }
 }
 
+// 一般的任务
+// 1. IO 任务，比如net IO、File IO
+// 2. Timer
+// 3. task, 一些比较占CPU的任务？
 
 int uv_run(uv_loop_t *loop, uv_run_mode mode) {
   DWORD timeout;
   int r;
   int can_sleep;
 
+  // 在uv_run之前要先提交任务到loop，否则无法进入loop
   r = uv__loop_alive(loop);
+  // 事件循环没有任务执行，即将退出，设置一下当前循环的时间  
   if (!r)
     uv_update_time(loop);
 
+  // 没有任务需要处理或者调用了uv_stop则退出事件循环  
   while (r != 0 && loop->stop_flag == 0) {
+    // 更新 loop->time
     uv_update_time(loop);
+
+    // 判断是否有timer该执行，如果有，则执行。
+    // 如果该timer是repeat的，还要重新入堆（小顶堆）。 
+    // js 的 setInterval 在底层的 repeat 就应该是 true。setTimeout 的 repeat 应该为 false。
     uv__run_timers(loop);
 
     can_sleep = loop->pending_reqs_tail == NULL && loop->idle_handles == NULL;
 
+    // pending 队列的处理（在IO操作上，比如read，如果read已经完成但没有执行read callback，此时就是pending状态。）
+    // socket、文件 的一些处理
     uv__process_reqs(loop);
+
     uv__idle_invoke(loop);
     uv__prepare_invoke(loop);
 
     timeout = 0;
+    /*
+      执行模式是UV_RUN_ONCE时，如果没有pending节点，
+      才会阻塞式Poll IO，默认模式也是  
+    */
+    // 也就是说，除了timer，没有其他活要干的话，Poll IO是可以阻塞的, 但阻塞多久呢？这里的 timeout 就是允许阻塞的最长时间。
+    // timeout 也是由 timer 队列算出来的
     if ((mode == UV_RUN_ONCE && can_sleep) || mode == UV_RUN_DEFAULT)
       timeout = uv_backend_timeout(loop);
 
+    // 这里看有没有IO操作已经完成
     if (pGetQueuedCompletionStatusEx)
       uv__poll(loop, timeout);
     else
       uv__poll_wine(loop, timeout);
+
+    // [QUES] 这里允许执行8次 uv__process_reqs。后面会有操作比较耗时影响 pending 的执行？
 
     /* Process immediate callbacks (e.g. write_cb) a small fixed number of
      * times to avoid loop starvation.*/
@@ -630,6 +654,9 @@ int uv_run(uv_loop_t *loop, uv_run_mode mode) {
     uv__metrics_update_idle_time(loop);
 
     uv__check_invoke(loop);
+
+    // 处理 uv__want_endgame 所加入的 handle
+    // 主要进行一些扫尾工作，比如shutdown socket, close handle, remove timer
     uv__process_endgames(loop);
 
     if (mode == UV_RUN_ONCE) {
@@ -641,7 +668,7 @@ int uv_run(uv_loop_t *loop, uv_run_mode mode) {
        * UV_RUN_NOWAIT makes no guarantees about progress so it's omitted from
        * the check.
        */
-      uv_update_time(loop);
+      uv_update_time(loop); // 更新 loop->time
       uv__run_timers(loop);
     }
 

@@ -1805,18 +1805,18 @@ union uv_any_req {
 
 struct uv_loop_s {
   /* User data - use this for whatever. */
-  void* data;
+  void* data; // 用户自定义数据的字段
   /* Loop reference counting. */
-  unsigned int active_handles;
-  void* handle_queue[2];
+  unsigned int active_handles; // 活跃的handle个数，会影响使用循环的退出
+  void* handle_queue[2]; // handle队列，包括活跃和非活跃的
   union {
     void* unused;
     unsigned int count;
-  } active_reqs;
+  } active_reqs; // request个数，会影响事件循环的退出
   /* Internal storage for future extensions. */
   void* internal_fields;
   /* Internal flag to signal loop stop. */
-  unsigned int stop_flag;
+  unsigned int stop_flag; // 事件循环是否结束的标记
   UV_LOOP_PRIVATE_FIELDS
 };
 

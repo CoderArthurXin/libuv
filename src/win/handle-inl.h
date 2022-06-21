@@ -28,7 +28,8 @@
 #include "uv.h"
 #include "internal.h"
 
-
+// handle->activecnt 减 1
+// 如果 active count 为 0 且 handle 没有 close，则执行 handle stop
 #define DECREASE_ACTIVE_COUNT(loop, handle)                             \
   do {                                                                  \
     if (--(handle)->activecnt == 0 &&                                   \
@@ -88,7 +89,8 @@
 INLINE static void uv__want_endgame(uv_loop_t* loop, uv_handle_t* handle) {
   if (!(handle->flags & UV_HANDLE_ENDGAME_QUEUED)) {
     handle->flags |= UV_HANDLE_ENDGAME_QUEUED;
-
+    
+    // 作为 head 加入到 loop->endgame_handles
     handle->endgame_next = loop->endgame_handles;
     loop->endgame_handles = handle;
   }

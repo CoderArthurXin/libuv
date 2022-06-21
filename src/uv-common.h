@@ -271,10 +271,12 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+// reset UV_HANDLE_ACTIVE 的 flag
+// 有 ref 的话，loop 的 active_handles 减 1 
 #define uv__handle_stop(h)                                                    \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_ACTIVE) == 0) break;                          \
-    (h)->flags &= ~UV_HANDLE_ACTIVE;                                          \
+    (h)->flags &= ~UV_HANDLE_ACTIVE;                                          \                               
     if (((h)->flags & UV_HANDLE_REF) != 0) uv__active_handle_rm(h);           \
   }                                                                           \
   while (0)

@@ -138,7 +138,7 @@ uint64_t uv_timer_get_due_in(const uv_timer_t* handle) {
   return handle->timeout - handle->loop->time;
 }
 
-
+// 找到下一个
 int uv__next_timeout(const uv_loop_t* loop) {
   const struct heap_node* heap_node;
   const uv_timer_t* handle;
@@ -146,12 +146,13 @@ int uv__next_timeout(const uv_loop_t* loop) {
 
   heap_node = heap_min(timer_heap(loop));
   if (heap_node == NULL)
-    return -1; /* block indefinitely */
+    return -1; /* block indefinitely */ // 没有timer需要执行
 
-  handle = container_of(heap_node, uv_timer_t, heap_node);
+  handle = container_of(heap_node, uv_timer_t, heap_node); // 通过偏移量找出 handle
   if (handle->timeout <= loop->time)
-    return 0;
+    return 0; // 最近 timer 已经到了
 
+  // 最近的timer还没到
   diff = handle->timeout - loop->time;
   if (diff > INT_MAX)
     diff = INT_MAX;
@@ -165,16 +166,25 @@ void uv__run_timers(uv_loop_t* loop) {
   uv_timer_t* handle;
 
   for (;;) {
+    // 取 loop->timer_heap 的最小值
     heap_node = heap_min(timer_heap(loop));
     if (heap_node == NULL)
       break;
 
     handle = container_of(heap_node, uv_timer_t, heap_node);
-    if (handle->timeout > loop->time)
-      break;
 
+    if (handle->timeout > loop->time)
+      break; // 当前时间比最近timer的时间还小，说明最近的timer还没到，退出
+      // 最近的timer都没到的话，其他timer就更没到了
+
+    // 1. 从 heap 移除已到的timer
+    // 2. 移除handle 的 V_HANDLE_ACTIVE flag
     uv_timer_stop(handle);
+
+    // 如果 handle 的 repeat flag 为 true, 则再次加入该timer。
     uv_timer_again(handle);
+
+    // 执行timer回调函数
     handle->timer_cb(handle);
   }
 }
