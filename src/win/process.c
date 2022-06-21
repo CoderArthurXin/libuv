@@ -858,6 +858,7 @@ static void CALLBACK exit_wait_callback(void* data, BOOLEAN didTimeout) {
 
   process->exit_cb_pending = 1;
 
+  // 通知完成端口
   /* Post completed */
   POST_COMPLETION_FOR_REQ(loop, &process->exit_req);
 }
@@ -934,7 +935,8 @@ void uv__process_endgame(uv_loop_t* loop, uv_process_t* handle) {
   uv__handle_close(handle);
 }
 
-
+// [QUES] 何时知道进程执行完（退出）?
+// 下面有提到 “Setup notifications for when the child process exits”，会执行 exit_wait_callback
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
@@ -1100,6 +1102,7 @@ int uv_spawn(uv_loop_t* loop,
     process_flags |= DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP;
   }
 
+  // 通过操作系统API启动进程
   if (!CreateProcessW(application_path,
                      arguments,
                      NULL,
@@ -1165,6 +1168,8 @@ int uv_spawn(uv_loop_t* loop,
 
   assert(!err);
 
+  // handlle set as UV_HANDLE_ACTIVE
+  // loop->active_handles 加 1
   /* Make the handle active. It will remain active until the exit callback is
    * made or the handle is closed, whichever happens first. */
   uv__handle_start(process);
