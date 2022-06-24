@@ -64,9 +64,14 @@ int uv_async_init(uv_loop_t* loop, uv_async_t* handle, uv_async_cb async_cb) {
 
 
 void uv__async_close(uv_loop_t* loop, uv_async_t* handle) {
+  // 如果 async_sent 为0，就会跑到if里面去，此时说明回调已执行完，可以去endgame了
   if (!((uv_async_t*)handle)->async_sent) {
     uv__want_endgame(loop, (uv_handle_t*) handle);
   }
+
+  // 执行到这里的时候，async_sent 也可能为1, 它为1说明处于pending状态，也就是说，pengding状态下可以close handle
+  // 难怪在 uv__process_async_wakeup_req 里有判断 flags 的 UV_HANDLE_CLOSING 是否已置起，如果已置起，
+  // 就去 uv__want_endgame 了，就不会执行 uv__work_done 回调函数了。
 
   uv__handle_closing(handle);
 }
@@ -111,6 +116,7 @@ void uv__process_async_wakeup_req(uv_loop_t* loop, uv_async_t* handle,
   // 处于 pending 状态下的 handle 不准 close
   handle->async_sent = 0;
 
+  // 如果 UV_HANDLE_CLOSING 已置起，说明在任务处理完前就执行了 uv_close(handle)
   if (handle->flags & UV_HANDLE_CLOSING) {
     // handle->flags: UV_HANDLE_CLOSING -> UV_HANDLE_ENDGAME_QUEUED
     // 在设置 UV_HANDLE_ENDGAME_QUEUED 的时候，会将handle放入 loop->endgame_handles

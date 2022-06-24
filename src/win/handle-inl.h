@@ -61,6 +61,10 @@
   } while (0)
 
 
+// 1, UV_HANDLE_CLOSING 不能已 set 
+// 2, UV_HANDLE_ACTIVE 和 UV_HANDLE_REF 只要其中一个 reset 了，loop->active_handles 加 1，why?
+// 3, set UV_HANDLE_CLOSING
+// 4, reset UV_HANDLE_ACTIVE
 #define uv__handle_closing(handle)                                      \
   do {                                                                  \
     assert(!((handle)->flags & UV_HANDLE_CLOSING));                     \
@@ -73,7 +77,9 @@
     (handle)->flags &= ~UV_HANDLE_ACTIVE;                               \
   } while (0)
 
-
+// 1, loop->active_handles--
+// 2, set UV_HANDLE_CLOSED
+// 3, 调用 close_cb
 #define uv__handle_close(handle)                                        \
   do {                                                                  \
     QUEUE_REMOVE(&(handle)->handle_queue);                              \

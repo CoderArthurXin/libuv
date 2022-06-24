@@ -263,6 +263,8 @@ void uv__threadpool_cleanup(void);
 #define uv__is_closing(h)                                                     \
   (((h)->flags & (UV_HANDLE_CLOSING | UV_HANDLE_CLOSED)) != 0)
 
+// 1, set UV_HANDLE_ACTIVE
+// 2, loop->active_handles++ if has set UV_HANDLE_REF
 #define uv__handle_start(h)                                                   \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_ACTIVE) != 0) break;                          \
@@ -271,8 +273,8 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
-// reset UV_HANDLE_ACTIVE 的 flag
-// 有 ref 的话，loop 的 active_handles 减 1 
+// 1, reset UV_HANDLE_ACTIVE
+// 2, loop->active_handles-- if has set UV_HANDLE_REF
 #define uv__handle_stop(h)                                                    \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_ACTIVE) == 0) break;                          \
@@ -281,6 +283,9 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+// 1, set UV_HANDLE_REF
+// 2, 正在 closing 的不能 loop->active_handles++
+// 3, loop->active_handles++ if has set UV_HANDLE_ACTIVE
 #define uv__handle_ref(h)                                                     \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_REF) != 0) break;                             \
@@ -290,6 +295,10 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+
+// 1, reset UV_HANDLE_REF
+// 2, 正在 closing 的不能 loop->active_handles--
+// 3. loop->active_handles-- if has set UV_HANDLE_ACTIVE
 #define uv__handle_unref(h)                                                   \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_REF) == 0) break;                             \
