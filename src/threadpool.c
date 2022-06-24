@@ -73,11 +73,13 @@ static void worker(void* arg) {
             QUEUE_NEXT(&run_slow_work_message) == &wq &&
             slow_io_work_running >= slow_work_thread_threshold())) {
       idle_threads += 1;
+
+      // 等待被唤醒
       uv_cond_wait(&cond, &mutex);
-      idle_threads -= 1;
+      idle_threads -= 1; // 唤醒后，空闲线程减1
     }
 
-    q = QUEUE_HEAD(&wq);
+    q = QUEUE_HEAD(&wq); // 取任务
     if (q == &exit_message) {
       uv_cond_signal(&cond);
       uv_mutex_unlock(&mutex);
@@ -88,7 +90,7 @@ static void worker(void* arg) {
     QUEUE_INIT(q);  /* Signal uv_cancel() that the work req is executing. */
 
     is_slow_work = 0;
-    if (q == &run_slow_work_message) {
+    if (q == &run_slow_work_message) { // 没看懂，先略过。。。
       /* If we're at the slow I/O threshold, re-schedule until after all
          other work in the queue is done. */
       if (slow_io_work_running >= slow_work_thread_threshold()) {
@@ -118,14 +120,20 @@ static void worker(void* arg) {
 
     uv_mutex_unlock(&mutex);
 
+    // 通过成员变量的 address 算出 uv__work 的 address
     w = QUEUE_DATA(q, struct uv__work, wq);
+
+    // 干活，这个work函数是外面传进来的，真正要干的活
     w->work(w);
 
     uv_mutex_lock(&w->loop->wq_mutex);
     w->work = NULL;  /* Signal uv_cancel() that the work req is done
                         executing. */
     QUEUE_INSERT_TAIL(&w->loop->wq, &w->wq);
+
+    // 通知主线程，注意，走的是 loop->wq_async
     uv_async_send(&w->loop->wq_async);
+
     uv_mutex_unlock(&w->loop->wq_mutex);
 
     /* Lock `mutex` since that is expected at the start of the next
@@ -141,6 +149,8 @@ static void worker(void* arg) {
 
 static void post(QUEUE* q, enum uv__work_kind kind) {
   uv_mutex_lock(&mutex);
+
+  // 如果是 slow IO，则放入 slow IO 队列
   if (kind == UV__WORK_SLOW_IO) {
     /* Insert into a separate queue. */
     QUEUE_INSERT_TAIL(&slow_io_pending_wq, q);
@@ -154,8 +164,12 @@ static void post(QUEUE* q, enum uv__work_kind kind) {
   }
 
   QUEUE_INSERT_TAIL(&wq, q);
+
+  // 如果有空闲线程，唤醒它
+  // 如果没有空闲线程，就不会wake，那任务什么时候执行？线程池里有循环，会判断队列是不是为空
   if (idle_threads > 0)
     uv_cond_signal(&cond);
+
   uv_mutex_unlock(&mutex);
 }
 
@@ -189,7 +203,7 @@ void uv__threadpool_cleanup(void) {
   nthreads = 0;
 }
 
-
+// 线程池初始化
 static void init_threads(void) {
   unsigned int i;
   const char* val;
@@ -257,7 +271,7 @@ static void init_once(void) {
   init_threads();
 }
 
-
+// 在 submit 的时候初始化线程池，但只初始化一次
 void uv__work_submit(uv_loop_t* loop,
                      struct uv__work* w,
                      enum uv__work_kind kind,
@@ -296,7 +310,8 @@ static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) {
   return 0;
 }
 
-
+// uv__work_done 是在何处执行的？
+ 
 void uv__work_done(uv_async_t* handle) {
   struct uv__work* w;
   uv_loop_t* loop;
@@ -304,7 +319,9 @@ void uv__work_done(uv_async_t* handle) {
   QUEUE wq;
   int err;
 
+  // 根据成员变量 wq_async 算出 loop 的地址
   loop = container_of(handle, uv_loop_t, wq_async);
+
   uv_mutex_lock(&loop->wq_mutex);
   QUEUE_MOVE(&loop->wq, &wq);
   uv_mutex_unlock(&loop->wq_mutex);
@@ -313,8 +330,11 @@ void uv__work_done(uv_async_t* handle) {
     q = QUEUE_HEAD(&wq);
     QUEUE_REMOVE(q);
 
+    // 算出传进来的 uv__work 的地址
     w = container_of(q, struct uv__work, wq);
     err = (w->work == uv__cancelled) ? UV_ECANCELED : 0;
+
+    // 这里的done是user在task完成后应该执行的done
     w->done(w, err);
   }
 }

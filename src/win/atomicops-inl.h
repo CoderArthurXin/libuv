@@ -36,6 +36,7 @@
 #pragma intrinsic(_InterlockedOr8)
 
 static char INLINE uv__atomic_exchange_set(char volatile* target) {
+  // set value 并返回之前的值
   return _InterlockedOr8(target, 1);
 }
 

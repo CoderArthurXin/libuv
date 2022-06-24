@@ -293,6 +293,8 @@ int uv_loop_init(uv_loop_t* loop) {
   if (err)
     goto fail_async_init;
 
+  // handle flag reset UV_HANDLE_REF
+  // loop->active_handles--
   uv__handle_unref(&loop->wq_async);
   loop->wq_async.flags |= UV_HANDLE_INTERNAL;
 
@@ -321,7 +323,7 @@ fail_metrics_mutex_init:
   return err;
 }
 
-
+// 更新 loop->time 的值
 void uv_update_time(uv_loop_t* loop) {
   uint64_t new_time = uv__hrtime(1000);
   assert(new_time >= loop->time);
@@ -422,7 +424,7 @@ int uv_backend_timeout(const uv_loop_t* loop) {
   return 0;
 }
 
-
+// IOCP status 变更后，req 放入 pending 队列
 static void uv__poll_wine(uv_loop_t* loop, DWORD timeout) {
   DWORD bytes;
   ULONG_PTR key;
@@ -470,8 +472,9 @@ static void uv__poll_wine(uv_loop_t* loop, DWORD timeout) {
 
     if (overlapped) {
       /* Package was dequeued */
-      req = uv__overlapped_to_req(overlapped);
-      uv__insert_pending_req(loop, req);
+      req = uv__overlapped_to_req(overlapped); // 通过 overlapped 的地址算去 req 的地址，overlapped 是 req 的 member
+
+      uv__insert_pending_req(loop, req); // 插入 pending 队列 loop->pending_reqs_tail
 
       /* Some time might have passed waiting for I/O,
        * so update the loop time here.
@@ -634,6 +637,7 @@ int uv_run(uv_loop_t *loop, uv_run_mode mode) {
       timeout = uv_backend_timeout(loop);
 
     // 这里看有没有IO操作已经完成
+    // IOCP status 变更后，req 放入 pending 队列
     if (pGetQueuedCompletionStatusEx)
       uv__poll(loop, timeout);
     else

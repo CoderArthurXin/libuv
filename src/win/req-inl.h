@@ -72,7 +72,15 @@
 #define UV_SUCCEEDED_WITH_IOCP(result)                                  \
   ((result) || (GetLastError() == ERROR_IO_PENDING))
 
-
+// PostQueuedCompletionStatus 作用：Posts an I/O completion packet to an I/O completion port.
+// 后面三个参数可以通过 GetQueuedCompletionStatus 拿到
+// 这里传了两个0，相当于只起到一个通知的作用
+// BOOL WINAPI PostQueuedCompletionStatus(
+//   _In_     HANDLE       CompletionPort,
+//   _In_     DWORD        dwNumberOfBytesTransferred,
+//   _In_     ULONG_PTR    dwCompletionKey,
+//   _In_opt_ LPOVERLAPPED lpOverlapped
+// );
 #define POST_COMPLETION_FOR_REQ(loop, req)                              \
   if (!PostQueuedCompletionStatus((loop)->iocp,                         \
                                   0,                                    \
@@ -82,7 +90,12 @@
   }
 
 
+// OVERLAPPED 是 uv_req_t 的 member，现在通过 member 的 address 算出 uv_req_t 的 address
+// uv_req_t address = member address - member offset
 INLINE static uv_req_t* uv__overlapped_to_req(OVERLAPPED* overlapped) {
+
+  // address 已知，它是 type 的 member，它在 type 的 offset 就是 (ULONG_PTR)(&((type *)0)->field)
+  // address 减去 offset 就是 type 的 address 了。
   return CONTAINING_RECORD(overlapped, uv_req_t, u.io.overlapped);
 }
 

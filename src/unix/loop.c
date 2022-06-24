@@ -95,6 +95,7 @@ int uv_loop_init(uv_loop_t* loop) {
   if (err)
     goto fail_mutex_init;
 
+  // 这个 uv__work_done 是在线程池那边定义的
   err = uv_async_init(loop, &loop->wq_async, uv__work_done);
   if (err)
     goto fail_async_init;

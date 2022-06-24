@@ -27,6 +27,9 @@
 #include "handle-inl.h"
 #include "req-inl.h"
 
+// 1.在调用 uv_async_init 初始化的时候，会给handle设置 async_cb，这个 async_cb 会在 req 完成后调用
+// 
+
 
 void uv__async_endgame(uv_loop_t* loop, uv_async_t* handle) {
   if (handle->flags & UV_HANDLE_CLOSING &&
@@ -40,14 +43,20 @@ void uv__async_endgame(uv_loop_t* loop, uv_async_t* handle) {
 int uv_async_init(uv_loop_t* loop, uv_async_t* handle, uv_async_cb async_cb) {
   uv_req_t* req;
 
+  // 初始化 handle
   uv__handle_init(loop, (uv_handle_t*) handle, UV_ASYNC);
   handle->async_sent = 0;
+  // 设置回调
   handle->async_cb = async_cb;
 
   req = &handle->async_req;
   UV_REQ_INIT(req, UV_WAKEUP);
+
+  // req 指向 handle->async_req,也就是让自己member的member指向自己
   req->data = handle;
 
+  // handle flag set UV_HANDLE_ACTIVE
+  // loop->active_handles++
   uv__handle_start(handle);
 
   return 0;
@@ -62,7 +71,7 @@ void uv__async_close(uv_loop_t* loop, uv_async_t* handle) {
   uv__handle_closing(handle);
 }
 
-
+// 从代码来看，整体作用就是通知IOCP,应该是通知主线程
 int uv_async_send(uv_async_t* handle) {
   uv_loop_t* loop = handle->loop;
 
@@ -71,11 +80,17 @@ int uv_async_send(uv_async_t* handle) {
     return -1;
   }
 
+  // user 不应该对 closing or closed handle 进行 uv_async_send
   /* The user should make sure never to call uv_async_send to a closing or
    * closed handle. */
   assert(!(handle->flags & UV_HANDLE_CLOSING));
 
+  // 给 handle->async_sent 置1并返回之前的值
+  // 这里的意思是给它置1，并且之前的值要是0
   if (!uv__atomic_exchange_set(&handle->async_sent)) {
+
+    // 通知IOCP，是走 req 发出去的，不是 handle。所以在处理 pending 的地方找不到 UV_ASYNC
+    // 这里要注意下，通知是走 async_req 发出去的，上面的 uv_async_init 有对 async_req 初始化，设置的 type 是 UV_WAKEUP
     POST_COMPLETION_FOR_REQ(loop, &handle->async_req);
   }
 
@@ -85,14 +100,26 @@ int uv_async_send(uv_async_t* handle) {
 
 void uv__process_async_wakeup_req(uv_loop_t* loop, uv_async_t* handle,
     uv_req_t* req) {
+  
+  // handle 必须是 UV_ASYNC
+  // req 必须是 UV_WAKEUP
   assert(handle->type == UV_ASYNC);
   assert(req->type == UV_WAKEUP);
 
+  // 在IOCP通知之前，有将它置1，也就是上面的 uv_async_send
+  // 全局搜了下 async_sent，它的作用应该是标志 handle 处于 pending 状态
+  // 处于 pending 状态下的 handle 不准 close
   handle->async_sent = 0;
 
   if (handle->flags & UV_HANDLE_CLOSING) {
+    // handle->flags: UV_HANDLE_CLOSING -> UV_HANDLE_ENDGAME_QUEUED
+    // 在设置 UV_HANDLE_ENDGAME_QUEUED 的时候，会将handle放入 loop->endgame_handles
+    // 在大循环的最后会处理 loop->endgame_handles，也就是 core.c 里的 uv__process_endgames
     uv__want_endgame(loop, (uv_handle_t*)handle);
   } else if (handle->async_cb != NULL) {
+    // 如果没有closing，就执行 async_cb，这个 async_cb 是？ 这个 async_cb 是 线程池里的 uv__work_done
+    // 它是在 uv_async_init 里赋值的，uv_loop_init 里有调用 uv_async_init，但这个init属于 loop->wq_async
+    // user 也可以给自己的 async handle 设置 async_cb，也就是 user 自己调用 uv_async_init。
     handle->async_cb(handle);
   }
 }
