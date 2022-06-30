@@ -161,9 +161,12 @@
   <ItemGroup>
     <ClCompile Include="idle_prepare_check_tester.cpp" />
     <ClCompile Include="LibuvTester.cpp" />
+    <ClCompile Include="ref_tester.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="common.h" />
     <ClInclude Include="idle_prepare_check_tester.h" />
+    <ClInclude Include="ref_tester.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
