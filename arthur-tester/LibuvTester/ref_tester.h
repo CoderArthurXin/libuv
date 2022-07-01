@@ -1,0 +1,29 @@
+#pragma once
+#include "uv.h"
+
+#define REF_TESTER
+
+int run_test_ref();
+int run_test_idle_ref();
+int run_test_async_ref();
+int run_test_prepare_ref();
+int run_test_check_ref();
+int run_test_unref_in_prepare_cb();
+int run_test_timer_ref();
+int run_test_timer_ref2();
+int run_test_fs_event_ref();
+int run_test_fs_poll_ref();
+int run_test_tcp_ref();
+int run_test_tcp_ref2();
+int run_test_tcp_ref2b();
+int run_test_tcp_ref3();
+int run_test_tcp_ref4();
+int run_test_udp_ref();
+int run_test_udp_ref2();
+int run_test_udp_ref3();
+int run_test_pipe_ref();
+int run_test_pipe_ref2();
+int run_test_pipe_ref3();
+int run_test_pipe_ref4();
+int run_test_process_ref();
+int run_test_has_ref();

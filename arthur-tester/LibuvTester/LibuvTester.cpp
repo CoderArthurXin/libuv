@@ -2,14 +2,24 @@
 //
 
 #include <iostream>
-#include "idle_prepare_check_tester.h"
+//#include "idle_prepare_check_tester.h"
+#include "ref_tester.h"
 
 #pragma comment(lib, "uv.lib")
 
 int main()
 {
-	
+#ifdef IDLE_PREPARE_CHECK_TESTER
 	idle_prepare_check_tester();
+#endif
+
+#ifdef REF_TESTER
+	{
+		//run_test_ref();
+		//run_test_idle_ref();
+		run_test_unref_in_prepare_cb();
+	}
+#endif
 
 	return 0;
 }
