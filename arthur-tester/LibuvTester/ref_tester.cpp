@@ -112,10 +112,10 @@ int run_test_idle_ref() {
 	uv_idle_t h;
 	uv_idle_init(uv_default_loop(), &h);
 	uv_idle_start(&h, (uv_idle_cb)fail_cb2);
-	//uv_unref((uv_handle_t*)&h);
+	uv_unref((uv_handle_t*)&h);
 	uv_run(uv_default_loop(), UV_RUN_DEFAULT);
 	do_close(&h);
-	MAKE_VALGRIND_HAPPY();
+	//MAKE_VALGRIND_HAPPY();
 	return 0;
 }
 

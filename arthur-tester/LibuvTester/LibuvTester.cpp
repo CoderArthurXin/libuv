@@ -16,8 +16,8 @@ int main()
 #ifdef REF_TESTER
 	{
 		//run_test_ref();
-		//run_test_idle_ref();
-		run_test_unref_in_prepare_cb();
+		run_test_idle_ref();
+		//run_test_unref_in_prepare_cb();
 	}
 #endif
 
