@@ -3,7 +3,8 @@
 
 #include <iostream>
 //#include "idle_prepare_check_tester.h"
-#include "ref_tester.h"
+//#include "ref_tester.h"
+#include "queue_work_tester.h"
 
 #pragma comment(lib, "uv.lib")
 
@@ -18,6 +19,12 @@ int main()
 		//run_test_ref();
 		run_test_idle_ref();
 		//run_test_unref_in_prepare_cb();
+	}
+#endif
+
+#ifdef QUEUE_WORK_TESTER
+	{
+		queue_work_tester();
 	}
 #endif
 
